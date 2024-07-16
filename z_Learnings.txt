@@ -1,0 +1,324 @@
+We have 3 data sets: authors, books & users; where aauthors  & books data are interlinked.
+
+-> $match: {
+    key: value;
+}
+will match all documents where this key: value pair exists
+
+-> $count: '<NameOfCountedValues>'
+will give count of  no. of documents matched/selected in stage 1
+
+(Q1) How many user are active: 
+(Ans) 
+[
+    {
+        $match: {
+            isActive: true
+        }
+    },
+    {
+        $count: 'activeUsers'
+    }
+]
+O/P: activeUsers : 516
+
+-> {
+    $group: {
+        _id: null,
+        accumultor: {
+
+        }
+    }
+}
+will group all documents into 1 document, also accumultor fxn.(ex. $avg, $sum, $push., etc.) can be written with it
+
+-> _id: '$gender' will group things into 2 documents: male & female
+
+(Q2) What is the average age of all users?
+(Ans)
+[
+  {
+  	$group: {
+  	  _id: null,
+      averageAge: {
+      	$avg: "$age"
+   	 	}
+  	}, 
+  }
+]
+O/P: {
+  "_id": null,
+  "averageAge": 29.835
+}
+
+-> {
+    $sort: {
+        count: 1
+    }
+}
+will sort data based on count field in "ascending order". count: -1 will sort data in "descending" order
+
+-> {
+    $limit: 3
+}
+will keep only top 3 documents 
+
+(Q3) List top 2 most common/favorite fruits among users ? //user object has a field 'favoriteFruit'
+(Ans)
+[
+  {
+    $group: {
+      _id: "$favoriteFruit",
+      count: {
+        $sum: 1,
+      },
+    },
+  },
+  {
+    $sort: {
+      count: -1,
+    },
+  },
+  {
+    $limit: 2,
+  },
+]
+O/P: {
+  "_id": "banana",
+  "count": 339
+},
+{
+  "_id": "apple",
+  "count": 338
+}
+
+(Q4) Find the no. of males and females? 
+(Ans)[
+  {
+    $group: {
+      _id: "$gender",
+      count: {
+        $sum: 1
+      }
+    }
+  }
+]
+O/P: {
+  "_id": "female",
+  "count": 507
+},{
+  "_id": "male",
+  "count": 493
+}
+
+(Q5) Which country has the highest no. of registered users? //user object: {company: [location: {country: }]}
+
+(Ans)[
+  {
+    $group: {
+      _id: "$company.location.country",
+      count: {
+        $sum: 1,
+      },
+    },
+  },
+  {
+    $sort: {
+      count: -1,
+    },
+  },
+  {
+    $limit: 1,
+  },
+]
+O/P: {
+  "count": 261,
+  "_id": "Germany"
+}
+
+(Q6) Count no. of unique eye colors present in the collection.
+(Ans)[
+  {
+    $group: {
+      _id: "$eyeColor"
+    }
+  },
+  {
+    $count: "noOfUniqueEyeColors" 
+  }
+]
+O/P: {
+  "noOfUniqueEyeColors": 3
+}
+
+-> {
+    $unwind: "$tags"
+}
+if a document has 4 tags, then this will make 4 documents of that 1 document with each having a different tag and all other key:value pairs being same.
+
+-> {
+    $addFields: {
+        keyName: {
+            $size: "${a particular key which is an array of elements}"
+        }
+    }
+} 
+
+
+(Q7) What is the average no. of tags per user? //user: {tags: [strings]};
+(SOL 1)[
+  {
+    $unwind: "$tags",
+  },
+  {
+    $group: {
+      _id: "$_id",
+      noOfTags: {
+        $sum: 1,
+      },
+    },
+  },
+  {
+    $group: {
+      _id: null,
+      averageNoOFTags: {
+        $avg: "$noOfTags",
+      },
+    },
+  },
+]
+O/P: {
+  "_id": null,
+  "averageNoOFTags": 3.556
+}
+(SOL 2) 
+[
+  {
+    $addFields: {
+      noOfTags: {
+        $size: {
+          $ifNull: ["$tags", []],
+        },
+      },
+    },
+  },
+  {
+    $group: {
+      _id: null,
+      averageNoOfTags: {
+        $avg: "$noOfTags",
+      },
+    },
+  },
+]
+O/P: {
+  "_id": null,
+  "averageNoOFTags": 3.556
+}
+
+(Q8) How many users have 'enim' as one of the tags?
+(Ans)[
+  {
+    $match: {
+      tags: "enim"
+    }
+  },
+  {
+    $count: 'usersWithenimTag'
+  }
+]
+O/P: {
+  "usersWithenimTag": 62
+}
+
+-> {
+    $project: {
+        name: 1,
+        age: 1
+    }
+}
+will filter out specefic fields(key, value pairs) from document, so here each user has multiple fields but above code will return with each user having only 2 fields: name & age
+
+(Q9) What are the name & age of users who are inactive and have 'velit' as one of there tags?
+(Ans)[
+  {
+    $match: {
+      tags: "velit",
+      isActive: false,
+    },
+  },
+  {
+    $project: {
+      name: 1,
+      age: 1,
+    },
+  },
+]
+
+-> {
+    $all: [condition1, condition2, condition3]
+}
+will check for documents which meet all(3 here) conditions
+
+(Q10) Count no. of users who have both 'enim' as well as 'ad' tag.
+(Sol)[
+  {
+    $match: {
+      tags: {
+        $all: ["enim", "ad"],
+      },
+    },
+  },
+  {
+    $count: "NoOfUsers",
+  },
+]
+O/P: {
+  "NoOfUsers": 2
+}
+
+(Q11) Return all the companies located in "USA" along with no. of users in that company
+(Ans)[
+  {
+    $match: {
+      "company.location.country": "USA",
+    },
+  },
+  {
+    $group: {
+      _id: "$company.title",
+      users: {
+        $sum: 1,
+      },
+    },
+  },
+]
+
+-> {
+    $lookup: {
+      from: collection, 
+      localField: field,
+      foreignField: field,
+      as: result
+    }
+  }
+ex. hamare paas ek (local) collection ke documents mein ek particualar field hai, aur kisi aur (foreign) collection ke bhi kuch documents mein bhi same field hai(maybe with different key), to hum foreign collection ke un documents(jinme vo field hai) ko local collction ke un documents(jinme vo field hai) mein store kar sakte hain with key(as: );
+
+(Q12) you are in books collection. In books, there is a field: "author_id" in each document; and in authors collection, each document has an "_id" field. So, modify documents of books collection such that each document has info about the author of the book in that document.
+(Sol) [
+  {
+    $lookup: {
+      from: authors,
+      localField: "author_id",
+      foreignField: "_id",
+      as: "author_details",
+    }
+  },
+  {
+    $addFields: {
+      $author_details: {
+        $arrayElemAt: ["$author_details", 0]
+      }
+    }
+  }
+]
